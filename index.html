@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Lembretes Permanentes</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#f9f9f9; color:#222; padding:18px; text-align:center; }
+  h1{margin:0 0 12px}
+  textarea, input, select, button { margin:6px 0; padding:8px; border-radius:8px; border:1px solid #ccc; width:90%; max-width:360px; }
+  button.primary{ background:#2196F3; color:#fff; border:none; cursor:pointer; }
+  #lista{ margin-top:18px; max-width:760px; margin-left:auto; margin-right:auto; text-align:left; }
+  .item{ background:#fff; padding:10px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.08); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .info{ flex:1; padding-right:10px }
+  .meta{ color:#666; font-size:13px }
+  .botoes{ display:flex; gap:6px }
+  .small{ padding:6px 8px; font-size:13px; border-radius:6px; cursor:pointer }
+  .pause { opacity:0.6 }
+  #apagarTodos { background:#f44336; color:#fff; border:none; margin-top:12px; }
+</style>
+</head>
+<body>
+
+<h1>📅 Lembretes Permanentes</h1>
+
+<textarea id="mensagem" placeholder="Digite sua mensagem..." rows="3"></textarea><br>
+<input type="time" id="hora"><br>
+<select id="dia">
+  <option value="Todos">Todos os dias</option>
+  <option>Segunda</option>
+  <option>Terça</option>
+  <option>Quarta</option>
+  <option>Quinta</option>
+  <option>Sexta</option>
+  <option>Sábado</option>
+  <option>Domingo</option>
+</select><br>
+
+<button id="adicionarBtn" class="primary">Adicionar / Salvar</button>
+<button id="apagarTodos">🗑️ Apagar Todos</button>
+
+<div id="lista"></div>
+
+<audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'lembretes_google_sites_v2';
+  let lembretes = [];
+  let editIndex = -1;
+
+  const mensagemEl = document.getElementById('mensagem');
+  const horaEl = document.getElementById('hora');
+  const diaEl = document.getElementById('dia');
+  const listaEl = document.getElementById('lista');
+  const addBtn = document.getElementById('adicionarBtn');
+  const apagarTodosBtn = document.getElementById('apagarTodos');
+  const alarme = document.getElementById('alarme');
+
+  // ----------- FUNÇÕES DE ARMAZENAMENTO -----------
+  function salvar(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lembretes));
+  }
+
+  function carregar(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      lembretes = raw ? JSON.parse(raw) : [];
+    } catch(e) { lembretes = []; }
+    renderizar();
+  }
+
+  // ----------- INTERFACE -----------
+  function renderizar(){
+    listaEl.innerHTML = '';
+    if (lembretes.length === 0) {
+      const vazio = document.createElement('p');
+      vazio.textContent = 'Nenhum lembrete criado.';
+      vazio.style.color = '#666';
+      listaEl.appendChild(vazio);
+      return;
+    }
+
+    lembretes.forEach((l, i) => {
+      const item = document.createElement('div');
+      item.className = 'item' + (l.pausado ? ' pause' : '');
+
+      const info = document.createElement('div');
+      info.className = 'info';
+      const msg = document.createElement('div');
+      msg.style.fontWeight = '600';
+      msg.textContent = l.msg;
+      info.appendChild(msg);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = `⏰ ${l.hora} • 📅 ${l.dia}`;
+      info.appendChild(meta);
+
+      item.appendChild(info);
+
+      const botoes = document.createElement('div');
+      botoes.className = 'botoes';
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'small';
+      editBtn.textContent = '✏️ Editar';
+      editBtn.addEventListener('click', ()=> editar(i));
+      botoes.appendChild(editBtn);
+
+      const remBtn = document.createElement('button');
+      remBtn.className = 'small';
+      remBtn.textContent = '🗑️ Remover';
+      remBtn.addEventListener('click', ()=> remover(i));
+      botoes.appendChild(remBtn);
+
+      const pauseBtn = document.createElement('button');
+      pauseBtn.className = 'small';
+      pauseBtn.textContent = l.pausado ? '▶️ Retomar' : '⏸️ Pausar';
+      pauseBtn.addEventListener('click', ()=> pausar(i));
+      botoes.appendChild(pauseBtn);
+
+      item.appendChild(botoes);
+      listaEl.appendChild(item);
+    });
+  }
+
+  function editar(i){
+    const l = lembretes[i];
+    mensagemEl.value = l.msg;
+    horaEl.value = l.hora;
+    diaEl.value = l.dia;
+    editIndex = i;
+    addBtn.textContent = 'Salvar alteração';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function remover(i){
+    lembretes.splice(i, 1);
+    salvar();
+    renderizar();
+  }
+
+  function pausar(i){
+    lembretes[i].pausado = !lembretes[i].pausado;
+    salvar();
+    renderizar();
+  }
+
+  addBtn.addEventListener('click', ()=>{
+    const msg = mensagemEl.value.trim();
+    const hora = horaEl.value;
+    const dia = diaEl.value;
+
+    if(!msg || !hora){
+      alert('Preencha mensagem e hora.');
+      return;
+    }
+
+    const novo = { msg, hora, dia, pausado:false };
+
+    if(editIndex >= 0){
+      lembretes[editIndex] = novo;
+      editIndex = -1;
+      addBtn.textContent = 'Adicionar / Salvar';
+    } else {
+      lembretes.push(novo);
+    }
+
+    mensagemEl.value = '';
+    horaEl.value = '';
+    diaEl.value = 'Todos';
+    salvar();
+    renderizar();
+  });
+
+  apagarTodosBtn.addEventListener('click', ()=>{
+    if(confirm('Apagar todos os lembretes?')){
+      lembretes = [];
+      salvar();
+      renderizar();
+    }
+  });
+
+  // ----------- CHECAGEM DE HORÁRIO -----------
+  function diaHoje(){
+    return ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][new Date().getDay()];
+  }
+
+  setInterval(()=>{
+    const agora = new Date();
+    const horaAtual = agora.toTimeString().slice(0,5);
+    const hoje = diaHoje();
+    lembretes.forEach(l=>{
+      if(!l.pausado && l.hora===horaAtual && (l.dia==='Todos'||l.dia===hoje)){
+        try{ alarme.play().catch(()=>{}); }catch{}
+        alert('🔔 Lembrete: ' + l.msg);
+      }
+    });
+  },15000);
+
+  // ----------- INICIALIZAÇÃO -----------
+  carregar();
+
+})();
+</script>
+<button id="btnInstall" style="display:none;">📲 Instalar App</button>
+<script>
+let deferredPrompt;
+const btnInstall = document.getElementById("btnInstall");
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  btnInstall.style.display = "block"; // mostra o botão
+});
+
+btnInstall.addEventListener("click", async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log("Resultado da instalação:", outcome);
+    deferredPrompt = null;
+    btnInstall.style.display = "none";
+  }
+});
+
+// Registrar o Service Worker
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>
