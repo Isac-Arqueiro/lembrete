@@ -2,29 +2,25 @@
 <html lang="pt-BR">
 <head>
   <link rel="manifest" href="manifest.json">
-<link rel="icon" href="https://i.imgur.com/FXk5lQo.jpeg">
-<meta name="theme-color" content="#1e90ff">
- <meta charset="UTF-8" />
- <meta name="viewport" content="width=device-width, initial-scale=1" />
- <title>Player</title>
- <style>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Lembretes Permanentes</title>
-<style>
-  body { font-family: Arial, sans-serif; background:#f9f9f9; color:#222; padding:18px; text-align:center; }
-  h1{margin:0 0 12px}
-  textarea, input, select, button { margin:6px 0; padding:8px; border-radius:8px; border:1px solid #ccc; width:90%; max-width:360px; }
-  button.primary{ background:#2196F3; color:#fff; border:none; cursor:pointer; }
-  #lista{ margin-top:18px; max-width:760px; margin-left:auto; margin-right:auto; text-align:left; }
-  .item{ background:#fff; padding:10px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.08); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
-  .info{ flex:1; padding-right:10px }
-  .meta{ color:#666; font-size:13px }
-  .botoes{ display:flex; gap:6px }
-  .small{ padding:6px 8px; font-size:13px; border-radius:6px; cursor:pointer }
-  .pause { opacity:0.6 }
-  #apagarTodos { background:#f44336; color:#fff; border:none; margin-top:12px; }
-</style>
+  <link rel="icon" href="https://i.imgur.com/FXk5lQo.jpeg">
+  <meta name="theme-color" content="#1e90ff">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Player</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f9f9f9; color:#222; padding:18px; text-align:center; }
+    h1{margin:0 0 12px}
+    textarea, input, select, button { margin:6px 0; padding:8px; border-radius:8px; border:1px solid #ccc; width:90%; max-width:360px; }
+    button.primary{ background:#2196F3; color:#fff; border:none; cursor:pointer; }
+    #lista{ margin-top:18px; max-width:760px; margin-left:auto; margin-right:auto; text-align:left; }
+    .item{ background:#fff; padding:10px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.08); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+    .info{ flex:1; padding-right:10px }
+    .meta{ color:#666; font-size:13px }
+    .botoes{ display:flex; gap:6px }
+    .small{ padding:6px 8px; font-size:13px; border-radius:6px; cursor:pointer }
+    .pause { opacity:0.6 }
+    #apagarTodos { background:#f44336; color:#fff; border:none; margin-top:12px; }
+  </style>
 </head>
 <body>
 
@@ -150,11 +146,12 @@
 
   function pausar(i){
     lembretes[i].pausado = !lembretes[i].pausado;
+    if(lembretes[i].pausado) alarme.pause(); // pausa o som
     salvar();
     renderizar();
   }
 
-  addBtn.addEventListener('click', ()=>{
+  addBtn.addEventListener('click', ()=> {
     const msg = mensagemEl.value.trim();
     const hora = horaEl.value;
     const dia = diaEl.value;
@@ -181,7 +178,7 @@
     renderizar();
   });
 
-  apagarTodosBtn.addEventListener('click', ()=>{
+  apagarTodosBtn.addEventListener('click', ()=> {
     if(confirm('Apagar todos os lembretes?')){
       lembretes = [];
       salvar();
@@ -200,8 +197,29 @@
     const hoje = diaHoje();
     lembretes.forEach(l=>{
       if(!l.pausado && l.hora===horaAtual && (l.dia==='Todos'||l.dia===hoje)){
-        try{ alarme.play().catch(()=>{}); }catch{}
-        alert('🔔 Lembrete: ' + l.msg);
+
+        // Tocar o alarme em loop
+        try{
+          alarme.loop = true;
+          alarme.play().catch(()=>{});
+        }catch{}
+
+        // Exibir notificação na barra
+        if ("Notification" in window) {
+          if (Notification.permission === "granted") {
+            const notif = new Notification("🔔 Lembrete Permanente", {
+              body: l.msg,
+              icon: "https://i.imgur.com/FXk5lQo.jpeg",
+              requireInteraction: true
+            });
+            notif.onclick = () => {
+              alarme.pause();
+              notif.close();
+            };
+          } else if (Notification.permission !== "denied") {
+            Notification.requestPermission();
+          }
+        }
       }
     });
   },15000);
@@ -211,7 +229,8 @@
 
 })();
 </script>
-  <button id="btnInstall" style="display:none;">📲 Instalar App</button>
+
+<button id="btnInstall" style="display:none;">📲 Instalar App</button>
 <script>
 let deferredPrompt;
 const btnInstall = document.getElementById("btnInstall");
